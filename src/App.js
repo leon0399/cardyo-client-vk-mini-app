@@ -1,32 +1,35 @@
-import React, { useState, useEffect } from 'react';
-import bridge from '@vkontakte/vk-bridge';
-import View from '@vkontakte/vkui/dist/components/View/View';
-import ScreenSpinner from '@vkontakte/vkui/dist/components/ScreenSpinner/ScreenSpinner';
-import '@vkontakte/vkui/dist/vkui.css';
+import React, { useState, useEffect } from 'react'
+import { connect } from 'react-redux'
 
-import Home from './panels/Home';
-import Persik from './panels/Persik';
+import { View, ScreenSpinner } from '@vkontakte/vkui'
+import '@vkontakte/vkui/dist/vkui.css'
 
-const App = () => {
+import { login } from './redux/actions/auth'
+import Home from './panels/Home'
+import Persik from './panels/Persik'
+
+import { parseQueryString } from './helpers';
+
+const App = (props) => {
+	const {
+		vkUser,
+		doLogin,
+	} = props
+
 	const [activePanel, setActivePanel] = useState('home');
-	const [fetchedUser, setUser] = useState(null);
 	const [popout, setPopout] = useState(<ScreenSpinner size='large' />);
 
 	useEffect(() => {
-		bridge.subscribe(({ detail: { type, data }}) => {
-			if (type === 'VKWebAppUpdateConfig') {
-				const schemeAttribute = document.createAttribute('scheme');
-				schemeAttribute.value = data.scheme ? data.scheme : 'client_light';
-				document.body.attributes.setNamedItem(schemeAttribute);
-			}
-		});
-		async function fetchData() {
-			const user = await bridge.send('VKWebAppGetUserInfo');
-			setUser(user);
-			setPopout(null);
+		const launchParams = parseQueryString(window.location.search);
+
+		const fetchData = async () => {
+			await doLogin(launchParams)
+
+			setPopout(null)
 		}
-		fetchData();
-	}, []);
+
+		fetchData()
+	}, [ doLogin ])
 
 	const go = e => {
 		setActivePanel(e.currentTarget.dataset.to);
@@ -34,11 +37,18 @@ const App = () => {
 
 	return (
 		<View activePanel={activePanel} popout={popout}>
-			<Home id='home' fetchedUser={fetchedUser} go={go} />
+			<Home id='home' fetchedUser={vkUser} go={go} />
 			<Persik id='persik' go={go} />
 		</View>
 	);
 }
 
-export default App;
+const mapStateToProps = (state) => ({
+	vkUser: state.auth.vkUser,
+	user: state.auth.user,
+})
+
+export default connect(mapStateToProps, {
+	doLogin: login
+})(App);
 
